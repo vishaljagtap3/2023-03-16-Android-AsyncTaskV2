@@ -1,21 +1,26 @@
 package in.bitcode.progressdialog;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.app.ProgressDialog;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
 
     private Button btnDownload;
     private SeekBar seekBar;
     private TextView txtSeekBarValue;
+    private ProgressDialog progressDialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,14 +37,18 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 //String localPath = Util.download("https://bitcode.in/file1.zip");
 
-                String [] fileUrls = {
+                String[] fileUrls = {
                         "https://bitcode.in/file1",
                         "https://bitcode.in/file2",
                         "https://bitcode.in/file3",
                 };
 
-                new DownloadThread()
-                        .execute(fileUrls);
+                DownloadThread downloadThread =
+                        new DownloadThread(
+                                new DownloadHandler()
+                        );
+
+                downloadThread.execute(fileUrls);
             }
         });
 
@@ -69,59 +78,41 @@ public class MainActivity extends AppCompatActivity {
         txtSeekBarValue = findViewById(R.id.txtSeekBarValue);
     }
 
-    class DownloadThread extends AsyncTask<String, Integer, Float> {
-        ProgressDialog progressDialog;
-
+    private class DownloadHandler extends Handler {
         @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            Log.e("tag", "onPre: " + Thread.currentThread().getName());
-            progressDialog = new ProgressDialog(MainActivity.this);
-            progressDialog.setTitle("BitCode");
-            progressDialog.setMessage("Downloading...");
-            progressDialog.setCancelable(true);
-            progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-            //progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-            progressDialog.show();
-            btnDownload.setText("Download started");
-        }
+        public void handleMessage(@NonNull Message msg) {
+            super.handleMessage(msg);
 
-        @Override
-        protected Float doInBackground(String [] input) {
-            Log.e("tag", "doInBg: " + Thread.currentThread().getName());
+            if(msg != null && msg.obj != null ) {
 
-            for(String url : input) {
-                progressDialog.setMessage("Downloading -> " + url);
-                for (int i = 0; i <= 100; i++) {
-                    //Log.e("tag", "Download: " + i  +"%");
-                    //btnDownload.setText(i+"%"); //can't touch views
-                    Integer [] progress = new Integer[1];
-                    progress[0] = i;
-                    publishProgress(progress);
-
-                    progressDialog.setProgress(i);
-                    try {
-                        Thread.sleep(20);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
+                switch (msg.what) {
+                    case 1:
+                        mt((String)msg.obj);
+                        showProgressDialog();
+                        break;
+                    case 2:
+                        btnDownload.setText(((Integer)msg.obj) + "%");
+                        progressDialog.setProgress((Integer)msg.obj);
+                        break;
+                    case 3:
+                        mt( ((Float)msg.obj) + " is final result...");
+                        progressDialog.dismiss();
+                        break;
                 }
+
             }
-            return 12.12f;
-        }
-
-        @Override
-        protected void onPostExecute(Float res) {
-            progressDialog.dismiss();
-            Log.e("tag", "onPost: " + Thread.currentThread().getName());
-            btnDownload.setText("Download finished " + res);
-            super.onPostExecute(res);
-        }
-
-        @Override
-        protected void onProgressUpdate(Integer... values) {
-            super.onProgressUpdate(values);
-            btnDownload.setText(values[0] + "%");
         }
     }
+
+    private void showProgressDialog() {
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMessage("Downloading...");
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.show();
+    }
+
+    private void mt(String text) {
+        Toast.makeText(this, text, Toast.LENGTH_SHORT).show();
+    }
+
 }
